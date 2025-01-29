@@ -1,0 +1,7 @@
+**/node_modules
+**/bin
+**/include
+**/lib
+**/lib64
+**/share
+**/__pycache__
