@@ -1,6 +1,6 @@
 config = {
-    "grid_width": 10,
-    "grid_height": 10,
+    "grid_width": 100,
+    "grid_height": 100,
     "initial_energy": 5.0,
     "max_energy": 10.0,
     "energy_recovery": 0.5,   # energy recovered when walking
@@ -10,6 +10,7 @@ config = {
     "max_steps": 100,         # max turns per episode
     "reward_reach_target": 10.0,
     "reward_distance_factor": -0.1,  # negative reward proportional to distance to target
+    "negative_reward_no_energy": -2,  # negative reward proportional to distance to target
 
     # Actions: each action is ("move_type", "direction")
     # move_type in {walk, sprint}, direction in {up, down, left, right}
