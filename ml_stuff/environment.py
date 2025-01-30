@@ -85,8 +85,7 @@ class RunnerEnv(gym.Env):
 
         # Check if there's enough energy to sprint
         if move_type == "sprint" and self.energy < -energy_change:
-            print("Not enough energy to sprint.")
-            reward = self.config["negative_reward_no_energy"]
+            reward -= self.config["negative_reward_no_energy"]
             done = False
             truncated = True
             self.steps += 1

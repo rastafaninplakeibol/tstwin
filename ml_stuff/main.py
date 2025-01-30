@@ -51,8 +51,8 @@ def main():
     if os.path.exists(ppo_path) and os.path.exists(lstm_path):
         model, lstm_model = load_models(env, ppo_path, lstm_path)
     else:
-        lstm_model = LSTMDynamicsModel(state_size=state_size, action_size=action_size, hidden_size=64, device=device)
-        model = PPO("MlpPolicy", env, verbose=1, n_steps=2048, batch_size=64, n_epochs=10, device=device)
+        lstm_model = LSTMDynamicsModel(state_size=state_size, action_size=action_size, hidden_size=64, device='cuda')
+        model = PPO("MlpPolicy", env, verbose=1, n_steps=2048, batch_size=64, n_epochs=10, device='cpu')
 
     lstm_callback = LSTMTrainerCallback(rl_model=model, lstm_model=lstm_model, lstm_buffer=lstm_buffer, train_freq=5, batch_size=64, verbose=1)
 

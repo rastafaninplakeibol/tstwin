@@ -2,7 +2,7 @@ config = {
     "grid_width": 100,
     "grid_height": 100,
     "initial_energy": 5.0,
-    "max_energy": 10.0,
+    "max_energy": 20.0,
     "energy_recovery": 0.5,   # energy recovered when walking
     "sprint_cost": 2.0,       # energy cost for sprinting
     "walk_distance": 1,       # cells moved when walking

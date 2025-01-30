@@ -20,8 +20,6 @@ def plot_game(env, ax):
     grid[env.runner_y, env.runner_x] = 1
     grid[env.target_y, env.target_x] = 2
     
-    print(env.runner_x, env.runner_y, env.target_x, env.target_y)
-
     cmap = plt.cm.get_cmap('viridis', 3)  # 3 discrete colors
     ax.imshow(grid, cmap=cmap, interpolation='nearest')
     ax.set_xticks(np.arange(-.5, env.grid_w, 1), minor=True)
