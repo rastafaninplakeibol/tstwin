@@ -29,7 +29,38 @@ def plot_game(env, ax):
     ax.set_xticks([])
     ax.set_yticks([])
 
-def main():
+
+def test_rl_agent(rl_model: PPO):
+    env = RunnerEnv(config)
+    #ppo_path = "ppo_model.zip"
+    #lstm_path = "lstm_model.pth"
+    #
+    #if os.path.exists(ppo_path) and os.path.exists(lstm_path):
+    #    model, lstm_model = load_models(env, ppo_path, lstm_path)
+    #else:
+    #    print("Models not found. Please train the models first.")
+    #    return
+
+    obs, _ = env.reset()
+    done = False
+    truncated = False
+
+    fig, ax = plt.subplots(figsize=(12,12))
+    plt.ion()
+    plt.show()
+
+    while not done and not truncated:
+        action, _ = rl_model.predict(obs)
+        obs, reward, done, truncated, _ = env.step(action)
+        plot_game(env, ax)
+        plt.pause(0.001)  # Adjust the pause duration as needed
+    
+    plt.ioff()
+    plt.close()
+
+
+
+def continuous_tests():
     env = RunnerEnv(config)
     ppo_path = "ppo_model.zip"
     lstm_path = "lstm_model.pth"
@@ -64,5 +95,7 @@ def main():
     plt.ioff()
     plt.show()
 
+    
+
 if __name__ == "__main__":
-    main()
+    continuous_tests()

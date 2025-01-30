@@ -5,6 +5,7 @@ import torch
 from config import config
 
 from environment import RunnerEnv
+from test_rl_agent import test_rl_agent
 
 class LSTMTrainerCallback(BaseCallback):
     def __init__(self, rl_model: PPO, lstm_model, lstm_buffer, train_freq=5, batch_size=64, verbose=0):
@@ -20,6 +21,10 @@ class LSTMTrainerCallback(BaseCallback):
         return True
 
     def _on_rollout_end(self):
+        test_rl_agent(self.rl_model)
+        return True
+
+
         rollout_buffer = self.rl_model.rollout_buffer
         obs = rollout_buffer.observations
         acts = rollout_buffer.actions
@@ -41,7 +46,7 @@ class LSTMTrainerCallback(BaseCallback):
             loss = self.lstm_model.train_batch(s, a, ns)
             if self.verbose > 0:
                 env = RunnerEnv(config)
-                test_obs, _ = env.reset()
+                test_obs, _ = env.create_random_state()
                 test_action = env.action_space.sample()
                 pred_ns = self.lstm_model.predict_next_state(test_obs, test_action)
                 print("Predicted next state:", pred_ns)

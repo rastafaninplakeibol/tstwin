@@ -1,3 +1,4 @@
+import random
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
@@ -46,6 +47,23 @@ class RunnerEnv(gym.Env):
 
         self.energy = self.config["initial_energy"]
         return self._get_obs(), {}
+    
+    def create_random_state(self):
+        self.steps = random.randint(0, self.max_steps)
+        # Random spawn for runner
+        self.runner_x = np.random.randint(self.grid_w)
+        self.runner_y = np.random.randint(self.grid_h)
+        # Random target far away
+        self.target_x = np.random.randint(self.grid_w)
+        self.target_y = np.random.randint(self.grid_h)
+        # Ensure target is not the same cell
+        while self.target_x == self.runner_x and self.target_y == self.runner_y:
+            self.target_x = np.random.randint(self.grid_w)
+            self.target_y = np.random.randint(self.grid_h)
+
+        self.energy = random.randint(0, self.max_energy)
+        return self._get_obs(), {}
+
 
     def _get_obs(self):
         # Normalize positions: x and y in [-1,1] by (pos/(grid_size-1)*2 -1)

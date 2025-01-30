@@ -26,8 +26,8 @@ def save_models(model, lstm_model, ppo_path="ppo_model.zip", lstm_path="lstm_mod
 
 def load_models(env, ppo_path="ppo_model.zip", lstm_path="lstm_model.pth"):
     rl_model = PPO.load(ppo_path, env=env, device='cpu')
-    lstm_model = LSTMDynamicsModel(state_size=env.observation_space.shape[0], action_size=env.action_space.n, hidden_size=64, device='cuda')
-    lstm_model.load_state_dict(torch.load(lstm_path))
+    lstm_model = LSTMDynamicsModel(state_size=env.observation_space.shape[0], action_size=env.action_space.n, hidden_size=256, device='cuda')
+    lstm_model.load_state_dict(torch.load(lstm_path, weights_only=True))
     print("Models loaded.")
     return rl_model, lstm_model
 
@@ -38,6 +38,7 @@ def main():
     
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
+    #print(f"State size: {state_size}, Action size: {action_size}")
     lstm_buffer = LSTMReplayBuffer(max_size=10000)
 
     ppo_path = "ppo_model.zip"
@@ -51,8 +52,8 @@ def main():
     if os.path.exists(ppo_path) and os.path.exists(lstm_path):
         model, lstm_model = load_models(env, ppo_path, lstm_path)
     else:
-        lstm_model = LSTMDynamicsModel(state_size=state_size, action_size=action_size, hidden_size=64, device='cuda')
-        model = PPO("MlpPolicy", env, verbose=1, n_steps=2048, batch_size=64, n_epochs=10, device='cpu')
+        lstm_model = LSTMDynamicsModel(state_size=state_size, action_size=action_size, hidden_size=256, device='cuda')
+        model = PPO("MlpPolicy", env, verbose=1, n_steps=2048, batch_size=64, n_epochs=50, device='cpu')
 
     lstm_callback = LSTMTrainerCallback(rl_model=model, lstm_model=lstm_model, lstm_buffer=lstm_buffer, train_freq=5, batch_size=64, verbose=1)
 

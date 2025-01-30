@@ -10,7 +10,7 @@ config = {
     "max_steps": 100,         # max turns per episode
     "reward_reach_target": 10.0,
     "reward_distance_factor": -0.1,  # negative reward proportional to distance to target
-    "negative_reward_no_energy": -10,  # negative reward proportional to distance to target
+    "negative_reward_no_energy": -100,  # negative reward proportional to distance to target
 
     # Actions: each action is ("move_type", "direction")
     # move_type in {walk, sprint}, direction in {up, down, left, right}

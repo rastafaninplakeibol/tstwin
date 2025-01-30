@@ -45,7 +45,7 @@ class LSTMDynamicsModel(nn.Module):
     def predict_next_state(self, state, action):
         a_one_hot = np.zeros((1, self.action_size))
         a_one_hot[0, action] = 1.0
-        input_data = np.concatenate((state[0].reshape(1, -1), a_one_hot), axis=1)
+        input_data = np.concatenate((state.reshape(1, -1), a_one_hot), axis=1)
         input_tensor = torch.FloatTensor(input_data).unsqueeze(1).to(self.device)
         pred = self.forward(input_tensor)
         return pred
