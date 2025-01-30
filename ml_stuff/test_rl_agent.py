@@ -16,13 +16,14 @@ def load_models(env, ppo_path="ppo_model.zip", lstm_path="lstm_model.pth"):
 
 def plot_game(env, ax):
     ax.clear()
-    grid = np.zeros((env.grid_h, env.grid_w), dtype=str)
-    grid[:] = '.'
-    grid[env.runner_y, env.runner_x] = 'R'
-    grid[env.target_y, env.target_x] = 'T'
-    ax.imshow(grid == '.', cmap='gray', interpolation='nearest')
-    ax.imshow(grid == 'R', cmap='Blues', interpolation='nearest')
-    ax.imshow(grid == 'T', cmap='Reds', interpolation='nearest')
+    grid = np.zeros((env.grid_h, env.grid_w), dtype=int)
+    grid[env.runner_y, env.runner_x] = 1
+    grid[env.target_y, env.target_x] = 2
+    
+    print(env.runner_x, env.runner_y, env.target_x, env.target_y)
+
+    cmap = plt.cm.get_cmap('viridis', 3)  # 3 discrete colors
+    ax.imshow(grid, cmap=cmap, interpolation='nearest')
     ax.set_xticks(np.arange(-.5, env.grid_w, 1), minor=True)
     ax.set_yticks(np.arange(-.5, env.grid_h, 1), minor=True)
     ax.grid(which='minor', color='black', linestyle='-', linewidth=2)
@@ -43,13 +44,15 @@ def main():
 
     obs, _ = env.reset()
     done = False
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(12,12))
     plt.ion()
     plt.show()
+
 
     while not done:
         action, _ = model.predict(obs)
         obs, reward, done, truncated, _ = env.step(action)
+        print(f"Action: {env.action_list[action]}")
         plot_game(env, ax)
         plt.pause(0.5)  # Adjust the pause duration as needed
 

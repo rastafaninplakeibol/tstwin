@@ -6,7 +6,7 @@ config = {
     "energy_recovery": 0.5,   # energy recovered when walking
     "sprint_cost": 2.0,       # energy cost for sprinting
     "walk_distance": 1,       # cells moved when walking
-    "sprint_distance": 2,     # cells moved when sprinting
+    "sprint_distance": 3,     # cells moved when sprinting
     "max_steps": 100,         # max turns per episode
     "reward_reach_target": 10.0,
     "reward_distance_factor": -0.1,  # negative reward proportional to distance to target

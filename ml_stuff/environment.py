@@ -61,6 +61,19 @@ class RunnerEnv(gym.Env):
                          energy_norm, steps_remaining_norm], dtype=np.float32)
 
     def step(self, action):
+
+        # Move the target away from the runner
+        if self.runner_x < self.target_x:
+            self.target_x = min(self.grid_w - 2, self.target_x + 1)
+        elif self.runner_x > self.target_x:
+            self.target_x = max(1, self.target_x - 1)
+
+        if self.runner_y < self.target_y:
+            self.target_y = min(self.grid_h - 2, self.target_y + 1)
+        elif self.runner_y > self.target_y:
+            self.target_y = max(1, self.target_y - 1)
+
+
         move_type, direction = self.action_list[action]
         # Determine move distance and energy cost
         if move_type == "walk":
@@ -72,9 +85,10 @@ class RunnerEnv(gym.Env):
 
         # Check if there's enough energy to sprint
         if move_type == "sprint" and self.energy < -energy_change:
+            print("Not enough energy to sprint.")
             reward = self.config["negative_reward_no_energy"]
             done = False
-            truncated = False
+            truncated = True
             self.steps += 1
             if self.steps >= self.max_steps:
                 truncated = True
@@ -93,17 +107,6 @@ class RunnerEnv(gym.Env):
         # Update energy
         self.energy = np.clip(self.energy + energy_change, 0, self.max_energy)
         self.steps += 1
-
-        # Move the target away from the runner
-        if self.runner_x < self.target_x:
-            self.target_x = min(self.grid_w - 2, self.target_x + 1)
-        elif self.runner_x > self.target_x:
-            self.target_x = max(1, self.target_x - 1)
-
-        if self.runner_y < self.target_y:
-            self.target_y = min(self.grid_h - 2, self.target_y + 1)
-        elif self.runner_y > self.target_y:
-            self.target_y = max(1, self.target_y - 1)
 
         # Compute rewards
         dist_to_target = np.linalg.norm([self.runner_x - self.target_x,
