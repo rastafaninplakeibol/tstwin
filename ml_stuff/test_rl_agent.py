@@ -8,9 +8,9 @@ from environment import RunnerEnv
 from lstm_model import LSTMDynamicsModel
 
 def load_models(env, ppo_path="ppo_model.zip", lstm_path="lstm_model.pth"):
-    model = PPO.load(ppo_path, env=env)
+    model = PPO.load(ppo_path, env=env, device='cpu')
     lstm_model = LSTMDynamicsModel(state_size=env.observation_space.shape[0], action_size=env.action_space.n, hidden_size=64, device='cuda')
-    lstm_model.load_state_dict(torch.load(lstm_path))
+    lstm_model.load_state_dict(torch.load(lstm_path, weights_only=True))
     print("Models loaded.")
     return model, lstm_model
 
@@ -20,7 +20,7 @@ def plot_game(env, ax):
     grid[env.runner_y, env.runner_x] = 1
     grid[env.target_y, env.target_x] = 2
     
-    cmap = plt.cm.get_cmap('viridis', 3)  # 3 discrete colors
+    cmap = plt.colormaps.get_cmap('viridis')  # 3 discrete colors
     ax.imshow(grid, cmap=cmap, interpolation='nearest')
     ax.set_xticks(np.arange(-.5, env.grid_w, 1), minor=True)
     ax.set_yticks(np.arange(-.5, env.grid_h, 1), minor=True)
@@ -47,12 +47,19 @@ def main():
     plt.show()
 
 
-    while not done:
-        action, _ = model.predict(obs)
-        obs, reward, done, truncated, _ = env.step(action)
-        print(f"Action: {env.action_list[action]}")
-        plot_game(env, ax)
-        plt.pause(0.5)  # Adjust the pause duration as needed
+    while True:
+        done = False
+        truncated = False
+        obs, _ = env.reset()
+        while not done and not truncated:
+            action, _ = model.predict(obs)
+            obs, reward, done, truncated, _ = env.step(action)
+            print("done", done, "truncated", truncated)
+            print(f"Action: {env.action_list[action]}")
+            plot_game(env, ax)
+            plt.pause(0.1)  # Adjust the pause duration as needed
+
+
 
     plt.ioff()
     plt.show()

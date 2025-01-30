@@ -62,18 +62,28 @@ class RunnerEnv(gym.Env):
 
     def step(self, action):
 
-        # Move the target away from the runner
-        if self.runner_x < self.target_x:
-            self.target_x = min(self.grid_w - 2, self.target_x + 1)
-        elif self.runner_x > self.target_x:
-            self.target_x = max(1, self.target_x - 1)
+        # Calculate the distance to the target
+        dist_to_target = np.linalg.norm([self.runner_x - self.target_x, self.runner_y - self.target_y])
 
-        if self.runner_y < self.target_y:
-            self.target_y = min(self.grid_h - 2, self.target_y + 1)
-        elif self.runner_y > self.target_y:
-            self.target_y = max(1, self.target_y - 1)
+        if dist_to_target < 20:
+            # Move the target away from the runner
+            if self.runner_x < self.target_x:
+                self.target_x = min(self.grid_w - 2, self.target_x + 1)
+            elif self.runner_x > self.target_x:
+                self.target_x = max(1, self.target_x - 1)
 
+            if self.runner_y < self.target_y:
+                self.target_y = min(self.grid_h - 2, self.target_y + 1)
+            elif self.runner_y > self.target_y:
+                self.target_y = max(1, self.target_y - 1)
+        else:
+            # Move the target randomly
+            mv_x = np.random.randint(-1, 1)
+            mv_y = np.random.randint(-1, 1)
+            self.target_x = np.clip(self.target_x + mv_x, 0, self.grid_w - 1)
+            self.target_y = np.clip(self.target_y + mv_y, 0, self.grid_h - 1)
 
+        print("action", action, self.action_list[action])
         move_type, direction = self.action_list[action]
         # Determine move distance and energy cost
         if move_type == "walk":
@@ -85,7 +95,10 @@ class RunnerEnv(gym.Env):
 
         # Check if there's enough energy to sprint
         if move_type == "sprint" and self.energy < -energy_change:
+            dist_to_target = np.linalg.norm([self.runner_x - self.target_x,self.runner_y - self.target_y])
+            reward = self.config["reward_distance_factor"] * dist_to_target
             reward -= self.config["negative_reward_no_energy"]
+
             done = False
             truncated = True
             self.steps += 1
