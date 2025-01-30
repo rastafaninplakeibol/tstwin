@@ -4,20 +4,20 @@ import torch.optim as optim
 import numpy as np
 
 class LSTMDynamicsModel(nn.Module):
-    def __init__(self, state_size, action_size, hidden_size=64, device='cpu'):
+    def __init__(self, state_size, action_size, hidden_size=256, device='cpu'):
         super(LSTMDynamicsModel, self).__init__()
         self.state_size = state_size
         self.action_size = action_size
         self.hidden_size = hidden_size
         self.device = torch.device(device)
 
-        self.lstm = nn.LSTM(state_size + action_size, hidden_size, batch_first=True)
+        self.lstm = nn.LSTM(state_size + action_size, hidden_size, num_layers=3, batch_first=True)
         self.fc = nn.Linear(hidden_size, state_size)
 
         self.to(self.device)
         self.optimizer = optim.Adam(self.parameters(), lr=0.001)
-        self.criterion = nn.L1Loss()
-        #self.criterion = nn.MSELoss()
+        #self.criterion = nn.L1Loss()
+        self.criterion = nn.MSELoss()
 
     def forward(self, x):
         x, _ = self.lstm(x)

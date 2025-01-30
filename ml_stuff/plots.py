@@ -18,7 +18,7 @@ error = read_data(error_file)
 plt.figure(figsize=(10, 5))
 
 plt.plot(training_loss, label='Training Loss')
-#plt.plot(error, label='Error')
+plt.plot(error, label='Error')
 
 plt.xlabel('Epoch')
 plt.ylabel('Value')
