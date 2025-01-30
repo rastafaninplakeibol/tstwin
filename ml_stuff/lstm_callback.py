@@ -21,7 +21,7 @@ class LSTMTrainerCallback(BaseCallback):
         return True
 
     def _on_rollout_end(self):
-        test_rl_agent(self.rl_model)
+        #test_rl_agent(self.rl_model)
         return True
 
 
