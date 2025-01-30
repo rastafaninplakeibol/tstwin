@@ -1,4 +1,5 @@
 import numpy as np
+from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 import torch
 from config import config
@@ -6,7 +7,7 @@ from config import config
 from environment import RunnerEnv
 
 class LSTMTrainerCallback(BaseCallback):
-    def __init__(self, rl_model, lstm_model, lstm_buffer, train_freq=5, batch_size=64, verbose=0):
+    def __init__(self, rl_model: PPO, lstm_model, lstm_buffer, train_freq=5, batch_size=64, verbose=0):
         super(LSTMTrainerCallback, self).__init__(verbose)
         self.rl_model = rl_model
         self.lstm_model = lstm_model
@@ -40,7 +41,7 @@ class LSTMTrainerCallback(BaseCallback):
             loss = self.lstm_model.train_batch(s, a, ns)
             if self.verbose > 0:
                 env = RunnerEnv(config)
-                test_obs = env.reset()
+                test_obs, _ = env.reset()
                 test_action = env.action_space.sample()
                 pred_ns = self.lstm_model.predict_next_state(test_obs, test_action)
                 print("Predicted next state:", pred_ns)

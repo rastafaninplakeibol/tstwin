@@ -83,7 +83,6 @@ class RunnerEnv(gym.Env):
             self.target_x = np.clip(self.target_x + mv_x, 0, self.grid_w - 1)
             self.target_y = np.clip(self.target_y + mv_y, 0, self.grid_h - 1)
 
-        print("action", action, self.action_list[action])
         move_type, direction = self.action_list[action]
         # Determine move distance and energy cost
         if move_type == "walk":
