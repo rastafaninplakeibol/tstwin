@@ -1,7 +1,7 @@
 config = {
     "grid_width": 100,
     "grid_height": 100,
-    "initial_energy": 100.0,
+    "initial_energy": 50.0,
     "max_energy": 100.0,
     "energy_recovery": 0.5,   # energy recovered when walking
     "sprint_cost": 2.0,       # energy cost for sprinting
