@@ -9,7 +9,7 @@ from lstm_model import LSTMDynamicsModel
 
 def load_models(env, ppo_path="ppo_model.zip", lstm_path="lstm_model.pth"):
     model = PPO.load(ppo_path, env=env, device='cpu')
-    lstm_model = LSTMDynamicsModel(state_size=env.observation_space.shape[0], action_size=env.action_space.n, hidden_size=64, device='cuda')
+    lstm_model = LSTMDynamicsModel(state_size=env.observation_space.shape[0], action_size=env.action_space.n, hidden_size=256, device='cuda')
     lstm_model.load_state_dict(torch.load(lstm_path, weights_only=True))
     print("Models loaded.")
     return model, lstm_model
@@ -89,8 +89,6 @@ def continuous_tests():
             print(f"Action: {env.action_list[action]}")
             plot_game(env, ax)
             plt.pause(0.1)  # Adjust the pause duration as needed
-
-
 
     plt.ioff()
     plt.show()
