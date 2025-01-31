@@ -184,10 +184,11 @@ class RunnerEnv(gym.Env):
 
 
         if move_type == "sprint" and self.energy < -energy_change:
-            reward = self.config["reward_distance_factor"] * prev_dist_to_target
-            reward -= self.config["negative_reward_no_energy"]  # Big penalty for running out of energy
+            #reward = self.config["reward_distance_factor"] * prev_dist_to_target
+            reward = self.config["negative_reward_no_energy"]  # Big penalty for running out of energy
+            self.energy = np.clip(self.energy + self.config["energy_recovery"], 0, self.max_energy)
             done = False
-            truncated = True  # Terminate episode
+            truncated = False
             self.steps += 1
             return self._get_obs(), reward, done, truncated, {}
 
