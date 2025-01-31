@@ -82,13 +82,15 @@ def continuous_tests():
         done = False
         truncated = False
         obs, _ = env.reset()
+        total_reward = 0
         while not done and not truncated:
             action, _ = model.predict(obs)
             obs, reward, done, truncated, _ = env.step(action)
-            print("done", done, "truncated", truncated)
-            print(f"Action: {env.action_list[action]}")
+            total_reward += reward
+            print(f"Action: {env.action_list[action]}, Reward: {reward}")
             plot_game(env, ax)
             plt.pause(0.1)  # Adjust the pause duration as needed
+        print(f"Total reward: {total_reward}")
 
     plt.ioff()
     plt.show()

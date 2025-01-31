@@ -4,6 +4,7 @@ import signal
 import numpy as np
 import torch
 from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import SubprocVecEnv
 from config import config
 from environment import RunnerEnv
 from lstm_model import LSTMDynamicsModel
@@ -19,8 +20,8 @@ def seed_everything(seed=42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-def save_models(model, lstm_model, ppo_path="ppo_model.zip", lstm_path="lstm_model.pth"):
-    model.save(ppo_path)
+def save_models(rl_model, lstm_model, ppo_path="ppo_model.zip", lstm_path="lstm_model.pth"):
+    rl_model.save(ppo_path)
     torch.save(lstm_model.state_dict(), lstm_path)
     print("Models saved.")
 
@@ -31,23 +32,27 @@ def load_models(env, ppo_path="ppo_model.zip", lstm_path="lstm_model.pth"):
     print("Models loaded.")
     return rl_model, lstm_model
 
+def make_env(config, rank, seed=42):
+    def _init():
+        env = RunnerEnv(config)
+        #env.seed(seed + rank)
+        return env
+    return _init
+
 def main():
     seed_everything(42)
+    num_envs = 10 # Number of parallel environments
+
+    #env_fns = [make_env(config, i) for i in range(num_envs)]
+    #env = SubprocVecEnv(env_fns)
     env = RunnerEnv(config)
-    device = "cpu" #"cuda" if torch.cuda.is_available() else "cpu"
     
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
-    #print(f"State size: {state_size}, Action size: {action_size}")
     lstm_buffer = LSTMReplayBuffer(max_size=10000)
 
     ppo_path = "ppo_model.zip"
     lstm_path = "lstm_model.pth"
-
-    #with open("lstm_training_loss.log", "w") as f:
-    #    print("Reset training loss log.")
-    #with open("lstm_error.log", "w") as f:
-    #    print("Reset error log.")
 
     if os.path.exists(ppo_path) and os.path.exists(lstm_path):
         model, lstm_model = load_models(env, ppo_path, lstm_path)

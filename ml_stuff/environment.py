@@ -214,9 +214,9 @@ class RunnerEnv(gym.Env):
         truncated = False
 
         if new_dist_to_target < prev_dist_to_target:
-            reward = 1.0  # Small reward for moving closer
+            reward = 1.0 * (3 if move_type == "sprint" else 1)  # Small reward for moving closer
         else:
-            reward = -1.0  # Small penalty for moving away
+            reward = -1.0 * (3 if move_type == "sprint" else 1)  # Small penalty for moving away
 
         if self.runner_x == self.target_x and self.runner_y == self.target_y:
             reward += self.config["reward_reach_target"]
@@ -227,8 +227,7 @@ class RunnerEnv(gym.Env):
         #    reward -= self.config["negative_reward_no_energy"]
         #    truncated = True  # Episode ends
 
-        if self.energy < self.config["max_energy"] / 5:
-            reward -= 2.0  
+        reward -= (1.0 - (self.energy / self.config["max_energy"])) * 3  # Scales penalty dynamically
         
         if self.steps >= self.max_steps:
             truncated = True
