@@ -40,8 +40,8 @@ class RunnerEnv(gym.Env):
         # Random target far away
         self.target_x = np.random.randint(self.grid_w)
         self.target_y = np.random.randint(self.grid_h)
-        # Ensure target is not the same cell
-        while self.target_x == self.runner_x and self.target_y == self.runner_y:
+        # Ensure target is at least 50 units away from the runner
+        while np.linalg.norm([self.target_x - self.runner_x, self.target_y - self.runner_y]) < 50:
             self.target_x = np.random.randint(self.grid_w)
             self.target_y = np.random.randint(self.grid_h)
 
@@ -115,7 +115,7 @@ class RunnerEnv(gym.Env):
         if move_type == "sprint" and self.energy < -energy_change:
             dist_to_target = np.linalg.norm([self.runner_x - self.target_x,self.runner_y - self.target_y])
             reward = self.config["reward_distance_factor"] * dist_to_target
-            reward -= self.config["negative_reward_no_energy"]
+            reward -= self.config["penalty_no_energy"]
 
             done = False
             truncated = True
@@ -157,40 +157,39 @@ class RunnerEnv(gym.Env):
     def step(self, action):
         prev_dist_to_target = np.linalg.norm([self.runner_x - self.target_x, self.runner_y - self.target_y])
 
-        if prev_dist_to_target < 20:
-            if self.runner_x < self.target_x:
-                self.target_x = min(self.grid_w - 2, self.target_x + 1)
-            elif self.runner_x > self.target_x:
-                self.target_x = max(1, self.target_x - 1)
-
-            if self.runner_y < self.target_y:
-                self.target_y = min(self.grid_h - 2, self.target_y + 1)
-            elif self.runner_y > self.target_y:
-                self.target_y = max(1, self.target_y - 1)
-        else:
-            mv_x = np.random.randint(-1, 1)
-            mv_y = np.random.randint(-1, 1)
-            self.target_x = np.clip(self.target_x + mv_x, 0, self.grid_w - 1)
-            self.target_y = np.clip(self.target_y + mv_y, 0, self.grid_h - 1)
+        #if prev_dist_to_target < 20:
+        #    if self.runner_x < self.target_x:
+        #        self.target_x = min(self.grid_w - 2, self.target_x + 1)
+        #    elif self.runner_x > self.target_x:
+        #        self.target_x = max(1, self.target_x - 1)
+        #
+        #    if self.runner_y < self.target_y:
+        #        self.target_y = min(self.grid_h - 2, self.target_y + 1)
+        #    elif self.runner_y > self.target_y:
+        #        self.target_y = max(1, self.target_y - 1)
+        #else:
+        #    mv_x = np.random.randint(-1, 2)
+        #    mv_y = np.random.randint(-1, 2)
+        #    self.target_x = np.clip(self.target_x + mv_x, 0, self.grid_w - 1)
+        #    self.target_y = np.clip(self.target_y + mv_y, 0, self.grid_h - 1)
 
         move_type, direction = self.action_list[action]
 
         if move_type == "walk":
             dist = self.config["walk_distance"]
-            energy_change = self.config["energy_recovery"]
-        else:
-            dist = self.config["sprint_distance"]
-            energy_change = -self.config["sprint_cost"]
-
-
-        if move_type == "sprint" and self.energy < -energy_change:
-            reward = self.config["reward_distance_factor"] * prev_dist_to_target
-            reward += self.config["negative_reward_no_energy"]  # Big penalty for running out of energy
             self.energy = np.clip(self.energy + self.config["energy_recovery"], 0, self.max_energy)
-            done = False
-            truncated = False
-            self.steps += 1
-            return self._get_obs(), reward, done, truncated, {}
+        else:
+            if self.energy <= self.config["sprint_cost"]:
+                reward = -self.config["reward_distance_factor"] * prev_dist_to_target
+                reward -= self.config["penalty_no_energy"]  # Big penalty for running out of energy
+                self.energy = 0
+                self.steps += 1
+                done = False
+                truncated = False
+                return self._get_obs(), reward, done, truncated, {}
+            else:
+                dist = self.config["sprint_distance"]
+                self.energy = np.clip(self.energy - self.config["sprint_cost"], 0, self.max_energy)
 
         # Move the runner
         if direction == "up":
@@ -202,38 +201,29 @@ class RunnerEnv(gym.Env):
         elif direction == "right":
             self.runner_x = min(self.grid_w - 1, self.runner_x + dist)
 
-        # Update energy
-        self.energy = np.clip(self.energy + energy_change, 0, self.max_energy)
         self.steps += 1
 
-        # Compute new distance after moving
         new_dist_to_target = np.linalg.norm([self.runner_x - self.target_x, self.runner_y - self.target_y])
 
-        # Compute rewards
         done = False
         truncated = False
 
-        if new_dist_to_target < prev_dist_to_target:
-            reward = 1.0 * (3 if move_type == "sprint" else 1)  # Small reward for moving closer
-        else:
-            reward = -1.0 * (3 if move_type == "sprint" else 1)  # Small penalty for moving away
-
         if self.runner_x == self.target_x and self.runner_y == self.target_y:
-            reward += self.config["reward_reach_target"]
-            done = True  # Mark episode as done
-
-        ## **3. Large penalty for dying with no energy**
-        #if self.energy <= 0:
-        #    reward -= self.config["negative_reward_no_energy"]
-        #    truncated = True  # Episode ends
-
-        reward -= (1.0 - (self.energy / self.config["max_energy"])) * 3  # Scales penalty dynamically
+            reward = self.config["reward_reach_target"]
+            done = True  
         
         if self.steps >= self.max_steps:
             truncated = True
 
-        reward = self.config["reward_distance_factor"] * prev_dist_to_target
+        max_delta = 2.236 if action == "sprint" else 1.41 # sqrt(2^2 + 1^2)
+        delta = (prev_dist_to_target - new_dist_to_target) / max_delta
+        reward = self.config["reward_distance_factor"] * delta
 
+        if(action == "sprint" and self.energy > self.config["max_energy"] * 0.8):
+            reward += 0.5
+        elif(action == "sprint" and self.energy < self.config["max_energy"] * 0.3):
+            reward -= 0.5
+        
         return self._get_obs(), reward, done, truncated, {}
 
 
