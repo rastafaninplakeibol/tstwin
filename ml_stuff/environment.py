@@ -211,19 +211,23 @@ class RunnerEnv(gym.Env):
         if self.runner_x == self.target_x and self.runner_y == self.target_y:
             reward = self.config["reward_reach_target"]
             done = True  
+            return self._get_obs(), reward, done, truncated, {}
+
         
         if self.steps >= self.max_steps:
             truncated = True
 
-        max_delta = 2.236 if action == "sprint" else 1.41 # sqrt(2^2 + 1^2)
+        max_delta = 2.236 if move_type == "sprint" else 1.41 # sqrt(2^2 + 1^2)
         delta = (prev_dist_to_target - new_dist_to_target) / max_delta
         reward = self.config["reward_distance_factor"] * delta
 
-        if(action == "sprint" and self.energy > self.config["max_energy"] * 0.8):
+        if(move_type == "sprint" and self.energy > self.config["max_energy"] * 0.8):
             reward += 0.5
-        elif(action == "sprint" and self.energy < self.config["max_energy"] * 0.3):
+        elif(move_type == "sprint" and self.energy < self.config["max_energy"] * 0.3):
             reward -= 0.5
         
+        reward -= 0.01 * self.steps
+
         return self._get_obs(), reward, done, truncated, {}
 
 
