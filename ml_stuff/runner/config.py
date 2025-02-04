@@ -8,9 +8,9 @@ config = {
     "walk_distance": 1,       # cells moved when walking
     "sprint_distance": 2,     # cells moved when sprinting
     "max_steps": 1000,         # max turns per episode
-    "reward_reach_target": 20.0,
-    "reward_distance_factor": 1,  # negative reward proportional to distance to target
-    "penalty_no_energy": 5,  # negative reward proportional to distance to target
+    "reward_reach_target": 200.0,
+    "reward_distance_factor": 2,  # negative reward proportional to distance to target
+    "penalty_no_energy": 50,  # negative reward proportional to distance to target
 
     # Actions: each action is ("move_type", "direction")
     # move_type in {walk, sprint}, direction in {up, down, left, right}

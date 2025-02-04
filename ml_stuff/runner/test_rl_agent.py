@@ -75,6 +75,7 @@ def continuous_tests():
     done = False
     fig, ax = plt.subplots(figsize=(12,12))
     plt.ion()
+    plt.tight_layout(pad=0.5)
     plt.show()
 
 
@@ -89,7 +90,7 @@ def continuous_tests():
             total_reward += reward
             print(f"Action: {env.action_list[action]}, Reward: {reward}")
             plot_game(env, ax)
-            plt.pause(0.1)  # Adjust the pause duration as needed
+            plt.pause(0.001)  # Adjust the pause duration as needed
         print(f"Total reward: {total_reward}")
 
     plt.ioff()

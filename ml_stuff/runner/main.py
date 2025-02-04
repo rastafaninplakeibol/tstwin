@@ -4,7 +4,9 @@ import signal
 import numpy as np
 import torch
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+from stable_baselines3.common.monitor import Monitor
+
 from config import config
 from environment import RunnerEnv
 from lstm_model import LSTMDynamicsModel
@@ -35,6 +37,7 @@ def load_models(env, ppo_path="ppo_model.zip", lstm_path="lstm_model.pth"):
 def make_env(config, rank, seed=42):
     def _init():
         env = RunnerEnv(config)
+        #env = Monitor(env)
         #env.seed(seed + rank)
         return env
     return _init
@@ -45,6 +48,7 @@ def main():
 
     #env_fns = [make_env(config, i) for i in range(num_envs)]
     #env = SubprocVecEnv(env_fns)
+    #env = VecMonitor(env)
     env = RunnerEnv(config)
     
     state_size = env.observation_space.shape[0]
@@ -58,7 +62,7 @@ def main():
         model, lstm_model = load_models(env, ppo_path, lstm_path)
     else:
         lstm_model = LSTMDynamicsModel(state_size=state_size, action_size=action_size, hidden_size=256, device='cuda')
-        model = PPO("MlpPolicy", env, verbose=1, n_steps=2048, batch_size=64, n_epochs=50, device='cpu')
+        model = PPO("MlpPolicy", env, verbose=1, n_steps=2048, batch_size=64, n_epochs=20, device='cpu')
 
     lstm_callback = LSTMTrainerCallback(rl_model=model, lstm_model=lstm_model, lstm_buffer=lstm_buffer, train_freq=5, batch_size=64, verbose=1)
 
