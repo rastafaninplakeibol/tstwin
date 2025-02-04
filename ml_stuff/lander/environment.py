@@ -6,7 +6,7 @@ import pygame
 import pymunk
 import pymunk.pygame_util
 
-
+'''
 class LanderEnv(gym.Env):
     #metadata = {'render.modes': ['human']}
 
@@ -28,12 +28,10 @@ class LanderEnv(gym.Env):
         truncated = False
 
         return self._get_obs(), reward, terminated, truncated, {}
+'''
 
-
-
-
-class LanderEnv:
-    def __init__(self, width=800, height=600,
+class LanderEnv(gym.Env):
+    def __init__(self, width=1600, height=1000,
                  gravity=900,           # gravity strength (pixels/s^2)
                  thrust_force=15000,    # force applied when rocket is fired
                  tilt_torque=5000       # torque applied for tilting the lander
@@ -51,7 +49,8 @@ class LanderEnv:
         self.clock = pygame.time.Clock()
 
         # Initialize Pymunk space (physics simulation)
-        self.space = pymunk.Space()
+        self.space = pymunk.Space(threaded=True)
+        self.space.threads = 2
         # In Pymunk, positive y goes upward; so to simulate gravity downward,
         # set gravity to (0, -gravity)
         self.space.gravity = (0, -self.gravity)
@@ -71,15 +70,22 @@ class LanderEnv:
 
         # Create static floor (the terrain)
         floor_body = pymunk.Body(body_type=pymunk.Body.STATIC)
-        floor_y = 50  # Floor y-position from the bottom
-        floor_shape = pymunk.Segment(floor_body, (0, floor_y), (self.width, floor_y), 5)
+        floor_y = 60  # Floor y-position from the bottom
+        floor_shape = pymunk.Segment(floor_body, (0, floor_y), (self.width, floor_y), 25)
         floor_shape.friction = 1.0
         self.space.add(floor_body, floor_shape)
+        
+        
+        ceiling_body = pymunk.Body(body_type=pymunk.Body.STATIC)
+        ceiling_shape = pymunk.Segment(ceiling_body, (0, self.height - 50), (self.width, self.height - 50), 25)
+
+        ceiling_shape.friction = 1.0
+        self.space.add(ceiling_body, ceiling_shape)
 
         # Create the lander as a dynamic body (a black box)
-        mass = 1
-        lander_width = 40
-        lander_height = 20
+        mass = 3
+        lander_width = 20
+        lander_height = 10
         moment = pymunk.moment_for_box(mass, (lander_width, lander_height))
         self.lander_body = pymunk.Body(mass, moment)
         # Start near the top center
@@ -114,16 +120,15 @@ class LanderEnv:
         # The thrust is applied relative to the lander's orientation.
         if action.get("thrust", False):
             angle = self.lander_body.angle
-            # Compute force vector: thrust is applied in the direction opposite to the lander's "down"
-            # (i.e., it pushes the lander upward relative to its orientation).
-            force = (-self.thrust_force * np.sin(angle),
-                      self.thrust_force * np.cos(angle))
-            self.lander_body.apply_force_at_local_point(force, (0, 0))
+            # Compute force vector: thrust is applied in the direction opposite to the lander's base
+            thrust_vector = pymunk.Vec2d(0, self.thrust_force).rotated(self.lander_body.angle)
+            self.lander_body.apply_force_at_local_point(-thrust_vector, (0, 0))
+
 
         # Apply torque for tilting the lander
         tilt = action.get("tilt", 0)
         if tilt != 0:
-            self.lander_body.apply_torque(tilt * self.tilt_torque)
+            self.lander_body.torque = (tilt * self.tilt_torque)
 
         # Step the physics simulation
         dt = 1 / 60.0
@@ -137,19 +142,51 @@ class LanderEnv:
 
         return obs, reward, done, info
 
-    def render(self):
+    def render(self, action=None):
         # Clear screen (white background)
         self.screen.fill((255, 255, 255))
+
         # Draw all objects in the physics space
         self.space.debug_draw(self.draw_options)
-        # Optionally, draw the lander as a filled black rectangle.
-        # Get the vertices of the lander's box:
+
+        # Get lander body properties
+        position = self.lander_body.position
+        angle = self.lander_body.angle
+
+        # Get lander vertices
         vertices = self.lander_shape.get_vertices()
-        vertices = [(int(self.lander_body.position.x + v.x), 
-                     int(self.height - (self.lander_body.position.y + v.y))) for v in vertices]
-        pygame.draw.polygon(self.screen, (0, 0, 0), vertices)
-        pygame.display.flip()
+
+        # render floor and ceiling
+        pygame.draw.line(self.screen, (0, 0, 0), (0, 60), (self.width, 60), 2)
+        pygame.draw.line(self.screen, (0, 0, 0), (0, self.height - 50), (self.width, self.height - 50), 2)
+
+
+        # Apply rotation to vertices
+        rotated_vertices = []
+        for v in vertices:
+            rotated_x = v.x * np.cos(angle) - v.y * np.sin(angle)
+            rotated_y = v.x * np.sin(angle) + v.y * np.cos(angle)
+            rotated_vertices.append((rotated_x, rotated_y))
+
+        # Translate vertices to the lander's position
+        vertices = [(int(position.x + v[0]), int(self.height - (position.y + v[1]))) for v in rotated_vertices]
+
+        # Split lander into two sections: top (black) and bottom (red)
+        pygame.draw.polygon(self.screen, (0, 0, 0), vertices)  # Entire lander body
+        pygame.draw.polygon(self.screen, (255, 0, 0), [vertices[0], vertices[1], vertices[2], vertices[3]])  # Bottom part
+
+        # Draw thrust force if thrust is applied
+        if action and action.get("thrust", False):
+            thrust_magnitude = min(self.thrust_force / 2000, 50)  # Normalize thrust length (max 50 pixels)
+            thrust_direction = pymunk.Vec2d(0, -thrust_magnitude).rotated(angle)  # Thrust comes from bottom
+            bottom_center = ((vertices[0][0] + vertices[1][0]) // 2, (vertices[0][1] + vertices[1][1]) // 2)
+
+            thrust_end = (int(bottom_center[0] + thrust_direction.x), int(bottom_center[1] + thrust_direction.y))
+            pygame.draw.line(self.screen, (255, 0, 0), bottom_center, thrust_end, 4)  # Red thrust line
+
+        pygame.display.update()
         self.clock.tick(60)
+
 
     def close(self):
         pygame.quit()
@@ -175,9 +212,9 @@ if __name__ == "__main__":
         }
 
         obs, reward, done, info = env.step(action)
-        env.render()
+        env.render(action)  # Pass action to render() to show thrust
 
-        # (Optional) Reset if a termination condition is met:
-        # if done: obs = env.reset()
+        if done:
+            obs = env.reset()
 
     env.close()
