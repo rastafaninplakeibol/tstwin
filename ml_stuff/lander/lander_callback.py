@@ -3,9 +3,9 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 import torch
 
-class TaxiCallback(BaseCallback):
+class LanderCallback(BaseCallback):
     def __init__(self, verbose=0):
-        super(TaxiCallback, self).__init__(verbose)
+        super(LanderCallback, self).__init__(verbose)
 
     def _on_step(self) -> bool:
         return True

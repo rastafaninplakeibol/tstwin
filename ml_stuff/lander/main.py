@@ -1,3 +1,4 @@
+from logging import config
 import os
 import random
 import signal
@@ -7,8 +8,8 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.common.monitor import Monitor
 
-from environment import TaxiEnv
-from taxi_callback import TaxiCallback
+from environment import LanderEnv
+from lander.lander_callback import LanderCallback
 import gymnasium as gym
 
 def seed_everything(seed=42):
@@ -31,7 +32,7 @@ def load_model(env, ppo_path="lander_model.zip"):
 
 def make_env(config, rank, seed=42):
     def _init():
-        env = TaxiEnv(config)
+        env = LanderEnv(config)
         #env = Monitor(env)
         #env.seed(seed + rank)
         return env
@@ -40,14 +41,21 @@ def make_env(config, rank, seed=42):
 def main():
     seed_everything(42)
     num_envs = 10 # Number of parallel environments
-    print(gym.envs.registry.keys())
-    exit(0)
-    env = TaxiEnv({
-        
-    })
+    #print(gym.envs.registry.keys())
+    #exit(0)
+
+    config = {
+        "width": 1600,
+        "height": 1000,
+        "gravity": 900,
+        "thrust_force": 15000,
+        "tilt_torque": 8000
+    }
+
+    env = LanderEnv(config)
     
-    state_size = env.observation_space.shape[0]
-    action_size = env.action_space.n
+    #state_size = env.observation_space.shape[0]
+    #action_size = env.action_space.n
 
     ppo_path = "ppo_model.zip"
 
@@ -64,7 +72,7 @@ def main():
 
 
     # Train PPO model with LSTM callback
-    model.learn(total_timesteps=5000000, callback=TaxiCallback(), log_interval=20, reset_num_timesteps=False)
+    model.learn(total_timesteps=5000000, callback=LanderCallback(), log_interval=20, reset_num_timesteps=False)
     save_models(model, ppo_path)
     
 if __name__ == "__main__":
