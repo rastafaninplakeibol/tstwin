@@ -7,35 +7,15 @@ import pygame
 import pymunk
 import pymunk.pygame_util
 
-'''
-class LanderEnv(gym.Env):
-    #metadata = {'render.modes': ['human']}
-
-    def __init__(self, config):
-        super().__init__()
-
-    def reset(self, *, seed=None, options=None):
-        super().reset(seed=seed)
-        
-        return self._get_obs(), {}
-
-    def _get_obs(self):
-        return np.array([], dtype=np.float32)
-
-    def step(self, action):
-
-        reward = 0
-        terminated = False
-        truncated = False
-
-        return self._get_obs(), reward, terminated, truncated, {}
-'''
 
 config = {
-    "reward_crashed": -1000,
-    "reward_landed": 1000,
-    "reward_per_step": -1,
-    "reward_per_distance": -2,
+    "reward_crashed": -100,
+    "reward_landed": 100,
+    "reward_per_step": -0.01,
+    "reward_per_distance_landing": -0.1,
+    "reward_wrong_tilt": -0.1,
+    "reward_per_velocity": -0.1,
+    "reward_getting_closer": 1
 }
 
 
@@ -121,7 +101,9 @@ class LanderEnv(gym.Env):
 
         #generate random position for a flag on the floor
         self.flag_position = (random.randint(200, self.width - 200), self.height - floor_y - 50)
+        
         self.previous_velocity = 0
+        self.closest_distance_to_target = 99999999999999
 
         return self.get_observation()
 
@@ -134,7 +116,7 @@ class LanderEnv(gym.Env):
         return {
             "position": pos,
             "velocity": vel,
-            "angle": angle,
+            "angle": angle % (2 * np.pi),
             "angular_velocity": angular_vel
         }
     
@@ -147,7 +129,6 @@ class LanderEnv(gym.Env):
         - "thrust": Boolean indicating if the rocket vent is fired.
         - "tilt": -1 for counter-clockwise torque, 1 for clockwise, 0 for no tilt.
         """
-        # Apply thrust force if action["thrust"] is True.
         thrust = action.get("thrust", 0.0)
         
         if thrust > 0:
@@ -164,51 +145,62 @@ class LanderEnv(gym.Env):
         dt = 1 / 60.0
         self.space.step(dt)
 
-        # Get observation, reward, done
+        # Get observation, reward, terminated
         obs = self.get_observation()
         reward = 0.0
-        done = False
+        terminated = False
         truncated = False
         info = {}
 
-        #print("Right wall: ", self.lander_shape.shapes_collide(self.right_wall).points)
-        #print("Left wall: ", self.lander_shape.shapes_collide(self.left_wall))
-        #print("Ceiling: ", self.lander_shape.shapes_collide(self.ceiling))
-        #print("Floor: ", self.lander_shape.shapes_collide(self.floor))
-
-
-        print("Velocity: ", self.previous_velocity)
+        #print("Velocity: ", self.previous_velocity)
+        crashed_to_floor = False
         if LanderEnv.are_colliding(self.lander_shape, self.left_wall) or LanderEnv.are_colliding(self.lander_shape, self.right_wall) or LanderEnv.are_colliding(self.lander_shape, self.ceiling):
             truncated = True
-            print("Crashed!")
+            #print("Crashed!")
         elif LanderEnv.are_colliding(self.lander_shape, self.floor):
-
+            crashed_to_floor = True
             #check if it is horizontal to the floor
             if abs(self.lander_body.angle) < 0.1:
                 if abs(self.previous_velocity) < 200:
-                    print("Landed!")
-                    done = True
+                    #print("Landed!")
+                    terminated = True
                 else:
-                    print("Crashed!")
+                    #print("Crashed!")
                     truncated = True
             else:
-                print("Crashed!")
+                #print("Crashed!")
                 truncated = True
 
             
-
+        distance_to_target = abs(self.flag_position[0] - self.lander_body.position.x)
         self.previous_velocity = self.lander_body.velocity.y
 
+        if crashed_to_floor:
+            reward += config["reward_per_distance_landing"] * (distance_to_target / 10)
+        
         if truncated:
-            reward = config["reward_crashed"]
-        elif done:
-            reward = config["reward_landed"]
-            reward += config["reward_per_distance"] * abs((self.flag_position[0] - self.lander_body.position.x) // 10)
+            reward += config["reward_crashed"]
+        elif terminated:
+            reward += config["reward_landed"]
 
-        reward += config["reward_per_step"]
+        if abs(self.lander_body.angle) > 0.1:
+            reward += config["reward_wrong_tilt"]
+
+        if self.closest_distance_to_target > distance_to_target:
+            reward += config["reward_getting_closer"]
+            self.closest_distance_to_target = distance_to_target
+        else:
+            reward -= config["reward_getting_closer"]
+
+        velocity = abs(self.lander_body.velocity)
+        if abs(velocity) > 200:
+            reward += config["reward_per_velocity"] * (velocity / 100)
+
+        #reward += config["reward_per_step"]
 
         self.last_action = action
-        return obs, reward, done, truncated, info
+        
+        return obs, reward, terminated, truncated, info
 
 
     def render(self):
@@ -287,12 +279,12 @@ def run_game():
             "tilt": -8000.0 if keys[pygame.K_LEFT] else (8000.0 if keys[pygame.K_RIGHT] else 0.0)
         }
 
-        obs, reward, done, truncated, info = env.step(action)
+        obs, reward, terminated, truncated, info = env.step(action)
         print("Reward:", reward)
         env.render()
         total_reward += reward
 
-        if done or truncated:
+        if terminated or truncated:
             print("Total reward:", total_reward)
             obs = env.reset()
             total_reward = 0
@@ -303,4 +295,4 @@ def run_game():
 if __name__ == "__main__":
     while True:
         run_game()
-        sleep(5)
+        #sleep(5)
