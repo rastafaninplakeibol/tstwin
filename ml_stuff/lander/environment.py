@@ -1,32 +1,45 @@
 import random
-from time import sleep
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 import pygame
 import pymunk
 import pymunk.pygame_util
+from stable_baselines3 import PPO
+import torch
 
+def seed_everything(seed=42):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 config = {
     "reward_crashed": -100,
     "reward_landed": 100,
     "reward_per_step": -0.01,
     "reward_per_distance_landing": -0.1,
-    "reward_wrong_tilt": -0.1,
-    "reward_per_velocity": -0.1,
-    "reward_getting_closer": 1
+    "reward_wrong_tilt": -0.01,
+    "reward_per_velocity": -0.01,
+    "reward_getting_closer": 0.1
 }
 
 
 
 
 class LanderEnv(gym.Env):
+    #do not render
+    render_mode = None
+
     def __init__(self, width=1600, height=1000,
                  gravity=900,           # gravity strength (pixels/s^2)
                  thrust_force=15000,    # force applied when rocket is fired
                  tilt_torque=8000       # torque applied for tilting the lander
                  ):
+        super().__init__()
         self.width = width
         self.height = height
         self.gravity = gravity
@@ -46,9 +59,24 @@ class LanderEnv(gym.Env):
         self.lander_body = None
         self.lander_shape = None
 
+        self.observation_space = spaces.Box(
+            low=np.array([0, 0, -np.inf, -np.inf, -2*np.pi, -np.inf]),
+            high=np.array([self.width, self.height, np.inf, np.inf, 2*np.pi, np.inf]),
+            dtype=np.float64
+        )
+
+        self.action_space = spaces.Box(
+            low=np.array([0.0, -self.max_tilt_torque]),
+            high=np.array([self.max_thrust_force, self.max_tilt_torque]),
+            dtype=np.float64
+        )
+
+
         self.reset()
 
-    def reset(self):
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
+
         for body in self.space.bodies[:]:
             self.space.remove(body)
         for shape in self.space.shapes[:]:
@@ -105,7 +133,7 @@ class LanderEnv(gym.Env):
         self.previous_velocity = 0
         self.closest_distance_to_target = 99999999999999
 
-        return self.get_observation()
+        return self.get_observation(), {}
 
     def get_observation(self):
         # Return the state of the lander: position, velocity, angle, and angular velocity.
@@ -113,12 +141,14 @@ class LanderEnv(gym.Env):
         vel = np.array(self.lander_body.velocity)
         angle = self.lander_body.angle
         angular_vel = self.lander_body.angular_velocity
-        return {
-            "position": pos,
-            "velocity": vel,
-            "angle": angle % (2 * np.pi),
-            "angular_velocity": angular_vel
-        }
+        #return {
+        #    "position": pos,
+        #    "velocity": vel,
+        #    "angle": angle % (2 * np.pi),
+        #    "angular_velocity": angular_vel
+        #}
+        return np.array([pos[0], pos[1], vel[0], vel[1], angle, angular_vel], dtype=np.float64)
+
     
     def are_colliding(shape1, shape2):
         return len(shape1.shapes_collide(shape2).points) > 0
@@ -129,7 +159,17 @@ class LanderEnv(gym.Env):
         - "thrust": Boolean indicating if the rocket vent is fired.
         - "tilt": -1 for counter-clockwise torque, 1 for clockwise, 0 for no tilt.
         """
-        thrust = action.get("thrust", 0.0)
+        #print("Action: ", action)
+        thrust, tilt = action[0], action[1]
+
+        #map thrust into the range [0, max_thrust_force]
+
+        
+        thrust = np.clip(thrust, 0, 1) * self.max_thrust_force        
+        tilt = np.tanh(tilt) * self.max_tilt_torque
+
+        action = [thrust, tilt]
+        #print("Action: ", action)
         
         if thrust > 0:
             local_thrust = (0, thrust)    # Upward in local coords
@@ -137,7 +177,6 @@ class LanderEnv(gym.Env):
             self.lander_body.apply_force_at_local_point(local_thrust, local_anchor)
 
         # Apply torque for tilting the lander
-        tilt = action.get("tilt", 0.0)
         if tilt != 0:
             self.lander_body.torque = -tilt
 
@@ -146,19 +185,18 @@ class LanderEnv(gym.Env):
         self.space.step(dt)
 
         # Get observation, reward, terminated
-        obs = self.get_observation()
         reward = 0.0
         terminated = False
         truncated = False
         info = {}
 
         #print("Velocity: ", self.previous_velocity)
-        crashed_to_floor = False
+        hit_floor = False
         if LanderEnv.are_colliding(self.lander_shape, self.left_wall) or LanderEnv.are_colliding(self.lander_shape, self.right_wall) or LanderEnv.are_colliding(self.lander_shape, self.ceiling):
             truncated = True
             #print("Crashed!")
         elif LanderEnv.are_colliding(self.lander_shape, self.floor):
-            crashed_to_floor = True
+            hit_floor = True
             #check if it is horizontal to the floor
             if abs(self.lander_body.angle) < 0.1:
                 if abs(self.previous_velocity) < 200:
@@ -175,9 +213,9 @@ class LanderEnv(gym.Env):
         distance_to_target = abs(self.flag_position[0] - self.lander_body.position.x)
         self.previous_velocity = self.lander_body.velocity.y
 
-        if crashed_to_floor:
-            reward += config["reward_per_distance_landing"] * (distance_to_target / 10)
-        
+        if hit_floor:
+            reward += np.tanh(config["reward_per_distance_landing"] * distance_to_target)
+    
         if truncated:
             reward += config["reward_crashed"]
         elif terminated:
@@ -194,12 +232,13 @@ class LanderEnv(gym.Env):
 
         velocity = abs(self.lander_body.velocity)
         if abs(velocity) > 200:
-            reward += config["reward_per_velocity"] * (velocity / 100)
+            reward += np.tanh(config["reward_per_velocity"] * velocity)
 
         #reward += config["reward_per_step"]
 
         self.last_action = action
-        
+
+        obs = self.get_observation()
         return obs, reward, terminated, truncated, info
 
 
@@ -235,9 +274,9 @@ class LanderEnv(gym.Env):
         # Draw the bottom half of the lander (red)
         pygame.draw.polygon(self.screen, (255, 0, 0), bottom_vertices)
 
+        thrust, tilt = self.last_action[0], self.last_action[1]
 
-        thrust = self.last_action.get("thrust", 0.0)
-        if self.last_action and thrust > 0:
+        if thrust > 0:
             thrust_magnitude = thrust / 1000
             mid_bottom = ((bottom_left[0] + bottom_right[0]) / 2, (bottom_left[1] + bottom_right[1]) / 2 + 10)
 
@@ -261,9 +300,16 @@ class LanderEnv(gym.Env):
         pygame.quit()
 
 
-def run_game():
+
+def load_model(env, ppo_path="ppo_model.zip"):
+    rl_model = PPO.load(ppo_path, env=env, device='cpu')
+    print("Models loaded.")
+    return rl_model
+
+def test_rl_agent():
     env = LanderEnv()
-    obs = env.reset()
+    rl_agent = load_model(env=env)
+    obs, _ = env.reset()
     running = True
 
     total_reward = 0
@@ -273,13 +319,9 @@ def run_game():
             if event.type == pygame.QUIT:
                 running = False
 
-        keys = pygame.key.get_pressed()
-        action = {
-            "thrust": 15000.0 if keys[pygame.K_UP] else 0.0,
-            "tilt": -8000.0 if keys[pygame.K_LEFT] else (8000.0 if keys[pygame.K_RIGHT] else 0.0)
-        }
+        action, _ = rl_agent.predict(obs)
+        obs, reward, terminated, truncated, _ = env.step(action)
 
-        obs, reward, terminated, truncated, info = env.step(action)
         print("Reward:", reward)
         env.render()
         total_reward += reward
@@ -294,5 +336,5 @@ def run_game():
 
 if __name__ == "__main__":
     while True:
-        run_game()
+        test_rl_agent()
         #sleep(5)
