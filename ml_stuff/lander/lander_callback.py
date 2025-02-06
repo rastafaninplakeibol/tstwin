@@ -3,6 +3,8 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 import torch
 
+from environment import test_rl_agent
+
 class LanderCallback(BaseCallback):
     def __init__(self, verbose=0):
         super(LanderCallback, self).__init__(verbose)
