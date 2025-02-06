@@ -23,7 +23,7 @@ def load_model(env, ppo_path="ppo_model.zip"):
 
 def make_env(config, rank, seed=42):
     def _init():
-        env = LanderEnv(config)
+        env = LanderEnv()
         #env = Monitor(env)
         #env.seed(seed + rank)
         return env
@@ -34,7 +34,7 @@ def main():
     #print(gym.envs.registry.keys())
     #exit(0)
 
-    num_envs = 10 # Number of parallel environments
+    num_envs = 20 # Number of parallel environments
     config = {
         "width": 1600,
         "height": 1000,
@@ -42,11 +42,13 @@ def main():
         "thrust_force": 15000,
         "tilt_torque": 8000
     }
-
-    env = LanderEnv()
     
-    #state_size = env.observation_space.shape[0]
-    #action_size = env.action_space.n
+    if num_envs == 1:
+        env = LanderEnv()
+    else: 
+        env_fns = [make_env(config, i) for i in range(num_envs)]
+        env = SubprocVecEnv(env_fns)
+        env = VecMonitor(env)
 
     ppo_path = "ppo_model.zip"
 

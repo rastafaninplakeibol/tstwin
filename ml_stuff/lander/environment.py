@@ -23,7 +23,7 @@ config = {
     "reward_per_step": -0.01,
     "reward_per_distance_landing": -0.1,
     "reward_wrong_tilt": -0.01,
-    "reward_per_velocity": -0.01,
+    "reward_per_velocity": -0.1,
     "reward_getting_closer": 0.1
 }
 
@@ -114,7 +114,8 @@ class LanderEnv(gym.Env):
         lander_height = 30
         moment = pymunk.moment_for_box(mass, (lander_width, lander_height))
         self.lander_body = pymunk.Body(mass, moment)
-        self.lander_body.position = (self.width / 2, self.height - 100)
+        self.lander_body.position = (self.width / 2, self.height - 400)
+        self.lander_body.angle = random.uniform(-np.pi / 4, np.pi / 4)
 
         # Define the lander shape vertices *relative to the body's center*
         lander_vertices = [
@@ -132,13 +133,14 @@ class LanderEnv(gym.Env):
         
         self.previous_velocity = 0
         self.closest_distance_to_target = 99999999999999
+        self.previous_distance = 99999999999999
 
         return self.get_observation(), {}
 
     def get_observation(self):
         # Return the state of the lander: position, velocity, angle, and angular velocity.
-        pos = np.array(self.lander_body.position)
-        vel = np.array(self.lander_body.velocity)
+        pos = np.array([self.lander_body.position.x, self.lander_body.position.y])
+        vel = np.array([self.lander_body.velocity.x, self.lander_body.velocity.y])
         angle = self.lander_body.angle
         angular_vel = self.lander_body.angular_velocity
         #return {
@@ -191,12 +193,10 @@ class LanderEnv(gym.Env):
         info = {}
 
         #print("Velocity: ", self.previous_velocity)
-        hit_floor = False
         if LanderEnv.are_colliding(self.lander_shape, self.left_wall) or LanderEnv.are_colliding(self.lander_shape, self.right_wall) or LanderEnv.are_colliding(self.lander_shape, self.ceiling):
             truncated = True
             #print("Crashed!")
         elif LanderEnv.are_colliding(self.lander_shape, self.floor):
-            hit_floor = True
             #check if it is horizontal to the floor
             if abs(self.lander_body.angle) < 0.1:
                 if abs(self.previous_velocity) < 200:
@@ -213,7 +213,8 @@ class LanderEnv(gym.Env):
         distance_to_target = abs(self.flag_position[0] - self.lander_body.position.x)
         self.previous_velocity = self.lander_body.velocity.y
 
-        if hit_floor:
+
+        if truncated or terminated:
             reward += np.tanh(config["reward_per_distance_landing"] * distance_to_target)
     
         if truncated:
@@ -221,22 +222,27 @@ class LanderEnv(gym.Env):
         elif terminated:
             reward += config["reward_landed"]
 
-        if abs(self.lander_body.angle) > 0.1:
-            reward += config["reward_wrong_tilt"]
+        angle = abs(self.lander_body.angle % (2 * np.pi))
+        if angle > np.pi / 18:
+            reward -= np.tanh(angle)
+        else:
+            reward += np.tanh(angle)
 
         if self.closest_distance_to_target > distance_to_target:
-            reward += config["reward_getting_closer"]
             self.closest_distance_to_target = distance_to_target
-        else:
+            reward += config["reward_getting_closer"] * 10
+        
+        if self.previous_distance < distance_to_target:
             reward -= config["reward_getting_closer"]
 
-        velocity = abs(self.lander_body.velocity)
-        if abs(velocity) > 200:
-            reward += np.tanh(config["reward_per_velocity"] * velocity)
+        velocity = self.lander_body.velocity.y
+        if velocity > 200 or velocity < -100:
+            reward += config["reward_per_velocity"] * np.tanh(velocity)
 
         #reward += config["reward_per_step"]
 
         self.last_action = action
+        self.previous_distance = distance_to_target
 
         obs = self.get_observation()
         return obs, reward, terminated, truncated, info
