@@ -18,11 +18,11 @@ def seed_everything(seed=42):
     torch.backends.cudnn.benchmark = False
 
 config = {
-    "reward_crashed": -100,
-    "reward_landed": 100,
+    "reward_crashed": -200,
+    "reward_landed": 200,
     "reward_per_step": -0.01,
     "reward_per_distance_landing": -0.1,
-    "reward_wrong_tilt": -0.01,
+    "reward_wrong_tilt": -1,
     "reward_per_velocity": -0.1,
     "reward_getting_closer": 0.1
 }
@@ -132,8 +132,8 @@ class LanderEnv(gym.Env):
         self.flag_position = (random.randint(200, self.width - 200), self.height - floor_y - 50)
         
         self.previous_velocity = 0
-        self.closest_distance_to_target = 99999999999999
-        self.previous_distance = 99999999999999
+        self.closest_distance_to_target = 50000
+        self.previous_distance = 50000
 
         return self.get_observation(), {}
 
@@ -198,7 +198,7 @@ class LanderEnv(gym.Env):
             #print("Crashed!")
         elif LanderEnv.are_colliding(self.lander_shape, self.floor):
             #check if it is horizontal to the floor
-            if abs(self.lander_body.angle) < 0.1:
+            if abs(self.lander_body.angle) < np.pi / 18:
                 if abs(self.previous_velocity) < 200:
                     #print("Landed!")
                     terminated = True
@@ -210,30 +210,26 @@ class LanderEnv(gym.Env):
                 truncated = True
 
             
-        distance_to_target = abs(self.flag_position[0] - self.lander_body.position.x)
+        distance_to_target = np.linalg.norm(np.array(self.lander_body.position) - np.array(self.flag_position))
+        
         self.previous_velocity = self.lander_body.velocity.y
-
-
-        if truncated or terminated:
-            reward += np.tanh(config["reward_per_distance_landing"] * distance_to_target)
     
         if truncated:
             reward += config["reward_crashed"]
         elif terminated:
+            reward += np.tanh(config["reward_per_distance_landing"] * distance_to_target)
             reward += config["reward_landed"]
 
         angle = abs(self.lander_body.angle % (2 * np.pi))
-        if angle > np.pi / 18:
-            reward -= np.tanh(angle)
-        else:
-            reward += np.tanh(angle)
-
+        
+        reward -= np.tanh(angle) * config["reward_wrong_tilt"]
+        
         if self.closest_distance_to_target > distance_to_target:
             self.closest_distance_to_target = distance_to_target
             reward += config["reward_getting_closer"] * 10
-        
+
         if self.previous_distance < distance_to_target:
-            reward -= config["reward_getting_closer"]
+            reward -= config["reward_getting_closer"] * (self.previous_distance - distance_to_target)
 
         velocity = self.lander_body.velocity.y
         if velocity > 200 or velocity < -100:

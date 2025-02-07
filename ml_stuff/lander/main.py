@@ -65,7 +65,7 @@ def main():
 
 
     # Train PPO model with LSTM callback
-    model.learn(total_timesteps=5000000, callback=LanderCallback(), log_interval=20, reset_num_timesteps=False)
+    model.learn(total_timesteps=50000000, callback=LanderCallback(), log_interval=20, reset_num_timesteps=False)
     save_models(model, ppo_path)
     
 if __name__ == "__main__":
